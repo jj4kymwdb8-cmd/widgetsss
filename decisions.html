@@ -19,14 +19,13 @@ body { padding: 1.5rem 1rem 2rem; font-family: system-ui, sans-serif; background
 .result-title { font-size: 17px; font-weight: 500; color: #2e4d35; margin-bottom: 0.4rem; }
 .result-where { font-size: 13px; color: #4a7c59; margin-bottom: 0.75rem; }
 .result-why { font-size: 12px; color: #6a9b73; font-style: italic; padding-top: 0.6rem; border-top: 1px solid #c8e6c9; }
-.pom-box { background: #fce4ec; border-radius: 8px; border: 1px solid #f8bbd0; padding: 0.6rem 1rem; font-size: 12px; color: #7d3c4a; margin-bottom: 1rem; }
+.pom-box { background: #fce4ec; border-radius: 8px; border: 1px solid #f8bbd0; padding: 0.6rem 1rem; font-size: 12px; color: #7d3c4a; margin-bottom: 1rem; margin-top: 1rem; }
 .progress { display: flex; gap: 5px; margin-bottom: 1.5rem; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: #f8bbd0; }
 .dot.done { background: #a5d6a7; }
 .dot.active { background: #f48fb1; }
 .back-btn { background: none; border: none; font-size: 12px; color: #7d5a5a; cursor: pointer; margin-bottom: 1rem; padding: 0; display: block; }
 .restart-btn { background: none; border: 1.5px solid #f8bbd0; border-radius: 8px; padding: 7px 16px; font-size: 13px; color: #7d5a5a; cursor: pointer; }
-.restart-btn:hover { background: #fce4ec; }
 </style>
 </head>
 <body>
@@ -34,20 +33,22 @@ body { padding: 1.5rem 1rem 2rem; font-family: system-ui, sans-serif; background
 <script>
 var mental = '';
 var timeChoice = '';
-var history = [];
+var hist = [];
+
 var poms = {
-  '20': 'One pomodoro (20 min). Set your desk timer and go.',
-  '60': 'Two pomodoros (25 min on, 5 min off). Set your timer now.',
-  'open': 'Classic 25/5 rhythm. Keep going until it feels done.'
+  t20: 'One pomodoro (20 min). Set your desk timer and go.',
+  t60: 'Two pomodoros (25 min on, 5 min off). Set your timer now.',
+  open: 'Classic 25/5 rhythm. Keep going until it feels done.'
 };
+
 var results = {
   'r-deadline': { title: 'Handle the deadline first.', where: 'Currently Active → Dates to Hit. Find it and do the next step now.', why: 'Deadlines need to move to the front. Everything else can wait.' },
   'r-homework': { title: 'Open the homework and do the next step.', where: 'Pull up the assignment, find where you left off, and start. Even reading the prompt counts.', why: 'School stuff has real consequences. One step done beats waiting for motivation.' },
   'r-nagging': { title: 'Do the thing that is nagging you.', where: 'Open Currently Active, find it, start it. Even 20 minutes counts.', why: 'Your brain is already primed for it. Go.' },
-  'r-mission': { title: 'Go read the Wins Log.', where: 'FBI: The Mission → Wins Log. Read it. That is enough.', why: "You don't need to produce today. Reconnecting with why is sometimes the most useful thing." },
+  'r-mission': { title: 'Go read the Wins Log.', where: 'FBI: The Mission → Wins Log. Read it. That is enough.', why: 'You do not need to produce today. Reconnecting with why is sometimes the most useful thing.' },
   'r-rest': { title: 'Rest on purpose.', where: 'Put something comforting on. K-drama, Stray Kids, whatever feels good. No guilt.', why: 'Flat days sometimes mean your system needs a reset, not a push.' },
   'r-tracker': { title: 'Update something that needs a touch.', where: 'Open Currently Active. Find a tracker or worksheet and bring it up to date.', why: 'Updating things keeps the system trustworthy and clears mental clutter.' },
-  'r-active': { title: 'Pick the smallest open item from Currently Active.', where: 'Scan all sections — Learning, Body, Life. Lowest barrier first.', why: "When in doubt, let the list decide. That is what it is there for." },
+  'r-active': { title: 'Pick the smallest open item from Currently Active.', where: 'Scan all sections — Learning, Body, Life. Lowest barrier first.', why: 'When in doubt, let the list decide. That is what it is there for.' },
   'r-forensic': { title: 'Explore something forensic or FBI-related.', where: 'Currently Active → Forensic Accounting Concepts. Next unchecked topic.', why: 'You have exploratory energy right now. Point it at something that feeds the long game.' },
   'r-personal': { title: 'Do something for yourself.', where: 'Korean, Canva, crafting, gaming, Stray Kids — whatever has been calling. No guilt.', why: 'You function better when you enjoy parts of your day. This counts.' },
   'r-body': { title: 'Do something for your body.', where: 'Workout A, B, or C — or just the hip stretches if that is all you have.', why: 'Consistency is what makes the body work pay off. Small counts.' },
@@ -56,19 +57,20 @@ var results = {
   'r-fbi': { title: 'Move something forward on the FBI path.', where: 'FBI Mission Control → Next 3 Moves. Do step 1 or the smallest part of it.', why: 'Career stuff compounds. Even a small move today is a move.' },
   'r-admin': { title: 'Clear some life admin.', where: 'Currently Active → Life section or Welcome page Admin zone. One thing.', why: 'Admin clears mental clutter. Even one thing off the list makes the system feel lighter.' }
 };
+
 var steps = {
-  'mental': { label: 'Step 1 of 4', q: 'Where are you mentally right now?', opts: [
+  mental: { label: 'Step 1 of 4', q: 'Where are you mentally right now?', opts: [
     { label: 'Scattered or overwhelmed', sub: 'Too many things, hard to land anywhere', next: 'time' },
     { label: 'Focused but not sure where to point it', sub: 'I have energy, I just do not know what to do', next: 'time' },
     { label: 'Pulled toward something specific', sub: 'Something is already nagging at me', next: 'time' },
     { label: 'Flat — nothing feels interesting', sub: 'Low motivation, low energy', next: 'time' }
   ]},
-  'time': { label: 'Step 2 of 4', q: 'How much time do you have?', opts: [
-    { label: 'About 20 minutes', sub: 'Quick focused burst', next: 'branch', time: '20' },
-    { label: 'About an hour', sub: 'Room to get into something properly', next: 'branch', time: '60' },
+  time: { label: 'Step 2 of 4', q: 'How much time do you have?', opts: [
+    { label: 'About 20 minutes', sub: 'Quick focused burst', next: 'branch', time: 't20' },
+    { label: 'About an hour', sub: 'Room to get into something properly', next: 'branch', time: 't60' },
     { label: 'Open-ended', sub: 'No real limit right now', next: 'branch', time: 'open' }
   ]},
-  'scattered': { label: 'Step 3 of 4', q: 'Do you want to think or execute?', opts: [
+  scattered: { label: 'Step 3 of 4', q: 'Do you want to think or execute?', opts: [
     { label: 'Execute — clear things, tick things off', sub: 'Mechanical, no big decisions', next: 'scattered-exec' },
     { label: 'Think — but lightly', sub: 'Something exploratory', next: 'scattered-think' }
   ]},
@@ -81,7 +83,7 @@ var steps = {
     { label: 'Something forensic or FBI-related', sub: 'A case, a concept, something interesting', next: 'r-forensic' },
     { label: 'Something personal or creative', sub: 'Korean, gaming, a project, something for me', next: 'r-personal' }
   ]},
-  'focused': { label: 'Step 3 of 4', q: 'Go deep on one thing or clear a bunch of small things?', opts: [
+  focused: { label: 'Step 3 of 4', q: 'Go deep on one thing or clear a bunch of small things?', opts: [
     { label: 'Go deep on one thing', sub: 'I want to sink into something', next: 'focused-deep' },
     { label: 'Clear a bunch of small things', sub: 'I want to feel like I moved a lot', next: 'focused-clear' }
   ]},
@@ -96,46 +98,53 @@ var steps = {
     { label: 'Life and admin', sub: 'Things off the life list', next: 'r-admin' },
     { label: 'Mix — whatever is most open', sub: 'Let the list decide', next: 'r-active' }
   ]},
-  'nagging': { label: 'Step 3 of 4', q: 'What kind of thing is nagging at you?', opts: [
+  nagging: { label: 'Step 3 of 4', q: 'What kind of thing is nagging at you?', opts: [
     { label: 'Homework or a class deadline', sub: 'Something due for school', next: 'area' },
     { label: 'Something I keep pushing aside', sub: 'It keeps coming up and I keep ignoring it', next: 'r-nagging' },
     { label: 'Something with a deadline', sub: 'It actually needs to happen soon', next: 'r-deadline' },
     { label: 'Something I have not started yet', sub: 'I want to finally begin it', next: 'focused-deep' }
   ]},
-  'flat': { label: 'Step 3 of 4', q: 'What would feel satisfying to have done — even on a low day?', opts: [
+  flat: { label: 'Step 3 of 4', q: 'What would feel satisfying to have done — even on a low day?', opts: [
     { label: 'Just something small that counts', sub: 'Tiny but real', next: 'area' },
     { label: 'Remind myself why I am doing this', sub: 'Reconnect with the mission', next: 'r-mission' },
     { label: 'Something with my hands — admin, updating', sub: 'Low thought, just doing', next: 'scattered-exec' },
     { label: 'Honestly just rest and exist', sub: 'That is also a valid move', next: 'r-rest' }
   ]},
-  'area': { label: 'One more thing', q: 'Is this for a specific area or just whatever makes sense?', opts: [
+  area: { label: 'One more thing', q: 'Is this for a specific area or just whatever makes sense?', opts: [
     { label: 'School or career', sub: 'Homework, accounting, FBI prep', next: 'r-homework' },
     { label: 'Personal', sub: 'Korean, creative stuff, gaming, Stray Kids', next: 'r-personal' },
     { label: 'Body or health', sub: 'Workout, stretches, supplements', next: 'r-body' },
     { label: 'Whatever fits', sub: 'Just give me the best option', next: 'r-active' }
   ]}
 };
+
 var branchMap = {
   'Scattered or overwhelmed': 'scattered',
   'Focused but not sure where to point it': 'focused',
   'Pulled toward something specific': 'nagging',
   'Flat — nothing feels interesting': 'flat'
 };
+
 function render(id) {
   var el = document.getElementById('flow');
-  var depth = history.length;
+  var depth = hist.length;
   var html = '';
   if (depth > 0) html += '<button class="back-btn" onclick="goBack()">← Back</button>';
   html += '<div class="progress">';
   for (var i = 0; i < 4; i++) {
-    var cls = i < depth ? 'done' : i === depth ? 'active' : '';
-    html += '<div class="dot ' + cls + '"></div>';
+    html += '<div class="dot' + (i < depth ? ' done' : i === depth ? ' active' : '') + '"></div>';
   }
   html += '</div>';
   if (results[id]) {
     var r = results[id];
-    html += '<div class="result-box"><div class="result-label">Do this</div><div class="result-title">' + r.title + '</div><div class="result-where">' + r.where + '</div><div class="result-why">Why this: ' + r.why + '</div></div>';
-    html += '<div class="pom-box">⏱ ' + (poms[timeChoice] || poms.open) + '</div>';
+    var pom = poms[timeChoice] || poms.open;
+    html += '<div class="result-box">';
+    html += '<div class="result-label">Do this</div>';
+    html += '<div class="result-title">' + r.title + '</div>';
+    html += '<div class="result-where">' + r.where + '</div>';
+    html += '<div class="result-why">Why this: ' + r.why + '</div>';
+    html += '</div>';
+    html += '<div class="pom-box">⏱ ' + pom + '</div>';
     html += '<button class="restart-btn" onclick="restart()">Start over</button>';
   } else if (steps[id]) {
     var s = steps[id];
@@ -143,20 +152,33 @@ function render(id) {
     html += '<div class="q">' + s.q + '</div><div class="opts">';
     for (var j = 0; j < s.opts.length; j++) {
       var o = s.opts[j];
-      html += '<button class="opt" onclick="choose(' + JSON.stringify(o.next) + ',' + JSON.stringify(id) + ',' + JSON.stringify(o.time||'') + ',' + JSON.stringify(o.label) + ')">' + o.label + (o.sub ? '<div class="sub">' + o.sub + '</div>' : '') + '</button>';
+      html += '<button class="opt" data-next="' + o.next + '" data-id="' + id + '" data-time="' + (o.time || '') + '" data-label="' + o.label + '">';
+      html += o.label;
+      if (o.sub) html += '<div class="sub">' + o.sub + '</div>';
+      html += '</button>';
     }
     html += '</div>';
   }
   el.innerHTML = html;
+
+  var btns = el.querySelectorAll('.opt');
+  for (var k = 0; k < btns.length; k++) {
+    btns[k].addEventListener('click', function() {
+      var next = this.getAttribute('data-next');
+      var cur = this.getAttribute('data-id');
+      var t = this.getAttribute('data-time');
+      var lbl = this.getAttribute('data-label');
+      if (cur === 'mental') mental = lbl;
+      if (cur === 'time') timeChoice = t;
+      hist.push(cur);
+      render(next === 'branch' ? (branchMap[mental] || 'scattered') : next);
+    });
+  }
 }
-function choose(next, current, time, label) {
-  if (current === 'mental') mental = label;
-  if (current === 'time') timeChoice = time;
-  history.push(current);
-  render(next === 'branch' ? (branchMap[mental] || 'scattered') : next);
-}
-function goBack() { render(history.pop() || 'mental'); }
-function restart() { history = []; mental = ''; timeChoice = ''; render('mental'); }
+
+function goBack() { render(hist.pop() || 'mental'); }
+function restart() { hist = []; mental = ''; timeChoice = ''; render('mental'); }
+
 render('mental');
 </script>
 </body>
